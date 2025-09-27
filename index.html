@@ -91,19 +91,6 @@
         .toggle-btn:hover {
             background-color: rgba(0, 0, 0, 0.9);
         }
-        .reset-btn {
-            background-color: rgba(255, 215, 0, 0.2);
-            color: #ffd700;
-            border: 1px solid #ffd700;
-            border-radius: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.3s;
-        }
-        .reset-btn:hover {
-            background-color: rgba(255, 215, 0, 0.4);
-        }
         .color-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -125,6 +112,7 @@
     <div id="canvas-container"></div>
     
     <div class="controls">
+        <h3>Цветок с мерцанием</h3>
         
         <div class="color-grid">
             <div class="color-option" data-color="0xFFF5E1">
@@ -243,10 +231,6 @@
         let flickerIntensity = 0;
         let flickerSpeed = 0.05;
         
-        // Сохраняем исходные параметры камеры
-        const initialCameraPosition = { x: 0, y: 0, z: 500 };
-        const initialCameraRotation = { x: 0, y: 0, z: 0 };
-        
         function init() {
             // Сцена
             scene = new THREE.Scene();
@@ -254,7 +238,7 @@
             
             // Камера
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.z = initialCameraPosition.z;
+            camera.position.z = 500;
             
             // Рендерер
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -394,16 +378,6 @@
                 flickerEnabled = this.checked;
             });
             
-            // Обработчик для кнопки сброса
-            const resetBtn = document.getElementById('reset-btn');
-            resetBtn.addEventListener('click', function() {
-                resetCamera();
-                // Также сбрасываем цвет на кремовый
-                changeFlowerColor(0xFFF5E1);
-                colorOptions.forEach(opt => opt.style.backgroundColor = 'transparent');
-                colorOptions[0].style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-            });
-            
             // Обработчик для кнопки переключения меню
             const toggleBtn = document.getElementById('toggle-btn');
             const controlsPanel = document.querySelector('.controls');
@@ -446,13 +420,6 @@
                     child.intensity = color === 0xFFF5E1 ? 0.9 : 0.7;
                 }
             });
-        }
-        
-        function resetCamera() {
-            // Сброс позиции и поворота камеры
-            camera.position.set(initialCameraPosition.x, initialCameraPosition.y, initialCameraPosition.z);
-            camera.rotation.set(initialCameraRotation.x, initialCameraRotation.y, initialCameraRotation.z);
-            controls.reset();
         }
         
         // Функции из оригинального кода
