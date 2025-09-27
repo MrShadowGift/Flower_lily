@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Цветок с подсветкой и тычинками</title>
+    <title>Цветок с подсветкой и мерцанием</title>
     <style>
         body { 
             margin: 0; 
@@ -16,21 +16,89 @@
             width: 100vw; 
             height: 100vh; 
         }
-        .info {
+        .controls {
             position: absolute;
-            bottom: 20px;
+            top: 20px;
             left: 20px;
             color: white;
-            font-size: 14px;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
             z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 200px;
+        }
+        .color-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .color-option:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        h3 {
+            margin: 0 0 10px 0;
+            color: #ffd700;
+        }
+        .flicker-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .flicker-control input {
+            margin: 0;
         }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
+    
+    <div class="controls">
+        <h3>Цветок с мерцанием</h3>
+        
+        <div class="color-option" data-color="0xFFF5E1">
+            <div class="color-preview" style="background-color: #FFF5E1;"></div>
+            <span>Кремовый</span>
+        </div>
+        
+        <div class="color-option" data-color="0xFFB6C1">
+            <div class="color-preview" style="background-color: #FFB6C1;"></div>
+            <span>Розовый</span>
+        </div>
+        
+        <div class="color-option" data-color="0xE6E6FA">
+            <div class="color-preview" style="background-color: #E6E6FA;"></div>
+            <span>Лавандовый</span>
+        </div>
+        
+        <div class="color-option" data-color="0x98FB98">
+            <div class="color-preview" style="background-color: #98FB98;"></div>
+            <span>Мятный</span>
+        </div>
+        
+        <div class="color-option" data-color="0x87CEEB">
+            <div class="color-preview" style="background-color: #87CEEB;"></div>
+            <span>Голубой</span>
+        </div>
+        
+        <div class="flicker-control">
+            <input type="checkbox" id="flicker-toggle" checked>
+            <label for="flicker-toggle">Эффект мерцания</label>
+        </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -50,8 +118,14 @@
         };
 
         let scene, camera, renderer, controls;
-        let flowerMesh, stamensGroup;
+        let flowerMesh;
         let rows = 60, cols = 120;
+        
+        // Переменные для управления цветом и мерцанием
+        let currentColor = 0xFFF5E1; // Кремовый по умолчанию
+        let flickerEnabled = true;
+        let flickerIntensity = 0;
+        let flickerSpeed = 0.05;
         
         function init() {
             // Сцена
@@ -87,9 +161,11 @@
             pointLight.position.set(0, 0, 100);
             scene.add(pointLight);
             
-            // Создание цветка и тычинок
+            // Создание цветка
             createFlower();
-            createStamens();
+            
+            // Настройка элементов управления
+            setupControls();
             
             // Обработка изменения размера окна
             window.addEventListener('resize', onWindowResize);
@@ -128,10 +204,10 @@
                     
                     vertices.push(x, y, z);
                     
-                    // Кремовый цвет с легким градиентом
-                    const creamBase = new THREE.Color(0xFFF5E1);
+                    // Цвет с легким градиентом
+                    const baseColor = new THREE.Color(currentColor);
                     const saturation = 0.9 - theta * (0.7 / rows);
-                    const color = creamBase.clone().multiplyScalar(saturation);
+                    const color = baseColor.clone().multiplyScalar(saturation);
                     
                     colors.push(color.r, color.g, color.b);
                 }
@@ -175,50 +251,48 @@
             scene.add(flowerMesh);
         }
         
-        function createStamens() {
-        /*    // Группа для тычинок
-            stamensGroup = new THREE.Group();
-            
-            // Создаем множество тычинок
-            const stamenCount = 100;
-            
-            for(let i = 0; i < stamenCount; i++) {
-                // Случайный угол и радиус для размещения тычинок у основания
-                const angle = Math.random() * Math.PI * 2;
-                const radius = 5 + Math.random() * 15;
-                
-                // Разная длина и толщина для естественности
-                const length = 60 + Math.random() * 190;
-                const thickness = 0.5 + Math.random() * 1.0;
-                
-                // Геометрия тычинки - тонкий цилиндр
-                const stamenGeometry = new THREE.CylinderGeometry(thickness/2, thickness, length, 6);
-                
-                // Материал тычинки - золотистый с легким свечением
-                const stamenMaterial = new THREE.MeshPhongMaterial({ 
-                    color: 0xFFD700,
-                    emissive: 0x664400,
-                    emissiveIntensity: 0.2
+        function setupControls() {
+            // Обработчики для выбора цвета
+            const colorOptions = document.querySelectorAll('.color-option');
+            colorOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const colorValue = parseInt(this.getAttribute('data-color'));
+                    changeFlowerColor(colorValue);
+                    
+                    // Обновляем выделение
+                    colorOptions.forEach(opt => opt.style.backgroundColor = 'transparent');
+                    this.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
                 });
+            });
+            
+            // Выбираем первый цвет по умолчанию
+            colorOptions[0].style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            
+            // Обработчик для переключателя мерцания
+            const flickerToggle = document.getElementById('flicker-toggle');
+            flickerToggle.addEventListener('change', function() {
+                flickerEnabled = this.checked;
+            });
+        }
+        
+        function changeFlowerColor(newColor) {
+            currentColor = newColor;
+            
+            // Обновляем цвета вершин
+            const colors = flowerMesh.geometry.attributes.color.array;
+            const baseColor = new THREE.Color(newColor);
+            
+            for(let i = 0; i < colors.length; i += 3) {
+                const theta = Math.floor((i/3) / cols) % rows;
+                const saturation = 0.9 - theta * (0.7 / rows);
+                const color = baseColor.clone().multiplyScalar(saturation);
                 
-                const stamen = new THREE.Mesh(stamenGeometry, stamenMaterial);
-                
-                // Позиционируем тычинку в основании цветка (z = -200)
-                stamen.position.x = Math.cos(angle) * radius;
-                stamen.position.y = Math.sin(angle) * radius;
-                stamen.position.z = -0; // Основание цветка
-                
-                // Все тычинки направлены вверх (вдоль положительной оси Z)
-                // Цилиндр по умолчанию ориентирован вдоль оси Y, поэтому поворачиваем его
-                stamen.rotation.x = Math.PI / 2; // Поворачиваем на 90 градусов вокруг X
-                
-                stamensGroup.add(stamen);
-                
-                // Добавляем небольшую сферу на кончике некоторых тычинок
-
+                colors[i] = color.r;
+                colors[i+1] = color.g;
+                colors[i+2] = color.b;
             }
             
-            scene.add(stamensGroup);*/
+            flowerMesh.geometry.attributes.color.needsUpdate = true;
         }
         
         // Функции из оригинального кода
@@ -241,6 +315,16 @@
             
             // Автоматическое вращение камеры
             controls.update();
+            
+            // Эффект мерцания
+            if (flickerEnabled && flowerMesh) {
+                flickerIntensity += flickerSpeed;
+                const flickerValue = 0.4 + 0.3 * Math.sin(flickerIntensity);
+                flowerMesh.material.emissiveIntensity = flickerValue;
+                
+                // Легкое изменение прозрачности для эффекта мерцания
+                flowerMesh.material.opacity = 0.85 + 0.1 * Math.sin(flickerIntensity * 0.7);
+            }
             
             renderer.render(scene, camera);
         }
