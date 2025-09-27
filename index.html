@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цветок с подсветкой и тычинками</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        #canvas-container { 
+            width: 100vw; 
+            height: 100vh; 
+        }
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Параметры цветка
+        const params = {
+            petalNum: 6,        // Количество лепестков: 6
+            diameter: 100,
+            pLength: 150,
+            pSharpness: 0.4,
+            flowerHeight: 300,
+            curvature1: 0.8,
+            curvature2: 0.2,
+            bump: 2.5,
+            bumpNum: 10
+        };
+
+        let scene, camera, renderer, controls;
+        let flowerMesh, stamensGroup;
+        let rows = 60, cols = 120;
+        
+        function init() {
+            // Сцена
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // Камера
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.z = 500;
+            
+            // Рендерер
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Управление камерой с автовращением
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+            
+            // Освещение для подсветки цветка
+            const ambientLight = new THREE.AmbientLight(0xfffdd0, 0.9);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xfffdd0, 0.9);
+            directionalLight.position.set(9, 9, 9);
+            scene.add(directionalLight);
+            
+            // Точечный свет для усиления свечения
+            const pointLight = new THREE.PointLight(0xfff5e1, 0.9, 1000);
+            pointLight.position.set(0, 0, 100);
+            scene.add(pointLight);
+            
+            // Создание цветка и тычинок
+            createFlower();
+            createStamens();
+            
+            // Обработка изменения размера окна
+            window.addEventListener('resize', onWindowResize);
+            
+            // Запуск анимации
+            animate();
+        }
+        
+        function createFlower() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const colors = [];
+            
+            const pNum = params.petalNum; // Используем 6 лепестков
+            const fD = params.diameter;
+            const pLen = params.pLength;
+            const pSharp = params.pSharpness;
+            const fHeight = params.flowerHeight;
+            const curve1 = params.curvature1;
+            const curve2 = params.curvature2;
+            const b = params.bump;
+            const bNum = params.bumpNum;
+            
+            // Создаем вершины с исправленной формулой для 6 лепестков
+            for(let theta = 0; theta < rows; theta++) {
+                for(let phi = 0; phi < cols; phi++) {
+                    // Исправленная формула для 6 лепестков
+                    const angle = phi * 2 * Math.PI / cols;
+                    const petalFactor = Math.abs(Math.sin(pNum * angle / 2));
+                    
+                    const r = (pLen * Math.pow(petalFactor, pSharp) + fD) * theta / rows;
+                    const x = r * Math.cos(angle);
+                    const y = r * Math.sin(angle);
+                    const z = vShape(fHeight, r/100, curve1, curve2, 1.5) - 200 +
+                        bumpiness(b, r/100, bNum, phi * 360/cols);
+                    
+                    vertices.push(x, y, z);
+                    
+                    // Кремовый цвет с легким градиентом
+                    const creamBase = new THREE.Color(0xFFF5E1);
+                    const saturation = 0.9 - theta * (0.7 / rows);
+                    const color = creamBase.clone().multiplyScalar(saturation);
+                    
+                    colors.push(color.r, color.g, color.b);
+                }
+            }
+            
+            // Создаем индексы для треугольников
+            const indices = [];
+            for(let theta = 0; theta < rows - 1; theta++) {
+                for(let phi = 0; phi < cols; phi++) {
+                    const nextPhi = (phi + 1) % cols;
+                    
+                    // Первый треугольник
+                    indices.push(theta * cols + phi);
+                    indices.push((theta + 1) * cols + phi);
+                    indices.push(theta * cols + nextPhi);
+                    
+                    // Второй треугольник
+                    indices.push(theta * cols + nextPhi);
+                    indices.push((theta + 1) * cols + phi);
+                    indices.push((theta + 1) * cols + nextPhi);
+                }
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            
+            // Материал с эффектом свечения
+            const material = new THREE.MeshPhongMaterial({
+                vertexColors: true,
+                side: THREE.DoubleSide,
+                shininess: 10,
+                emissive: 0x333300,
+                emissiveIntensity: 0.6,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            flowerMesh = new THREE.Mesh(geometry, material);
+            scene.add(flowerMesh);
+        }
+        
+        function createStamens() {
+        /*    // Группа для тычинок
+            stamensGroup = new THREE.Group();
+            
+            // Создаем множество тычинок
+            const stamenCount = 100;
+            
+            for(let i = 0; i < stamenCount; i++) {
+                // Случайный угол и радиус для размещения тычинок у основания
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 5 + Math.random() * 15;
+                
+                // Разная длина и толщина для естественности
+                const length = 60 + Math.random() * 190;
+                const thickness = 0.5 + Math.random() * 1.0;
+                
+                // Геометрия тычинки - тонкий цилиндр
+                const stamenGeometry = new THREE.CylinderGeometry(thickness/2, thickness, length, 6);
+                
+                // Материал тычинки - золотистый с легким свечением
+                const stamenMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xFFD700,
+                    emissive: 0x664400,
+                    emissiveIntensity: 0.2
+                });
+                
+                const stamen = new THREE.Mesh(stamenGeometry, stamenMaterial);
+                
+                // Позиционируем тычинку в основании цветка (z = -200)
+                stamen.position.x = Math.cos(angle) * radius;
+                stamen.position.y = Math.sin(angle) * radius;
+                stamen.position.z = -0; // Основание цветка
+                
+                // Все тычинки направлены вверх (вдоль положительной оси Z)
+                // Цилиндр по умолчанию ориентирован вдоль оси Y, поэтому поворачиваем его
+                stamen.rotation.x = Math.PI / 2; // Поворачиваем на 90 градусов вокруг X
+                
+                stamensGroup.add(stamen);
+                
+                // Добавляем небольшую сферу на кончике некоторых тычинок
+
+            }
+            
+            scene.add(stamensGroup);*/
+        }
+        
+        // Функции из оригинального кода
+        function vShape(A, r, a, b, c) {
+            return A * Math.pow(Math.E, -b * Math.pow(Math.abs(r), c)) * Math.pow(Math.abs(r), a);
+        }
+        
+        function bumpiness(A, r, f, angle) {
+            return 1 + A * Math.pow(r, 2) * Math.sin(f * angle * Math.PI/180);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Автоматическое вращение камеры
+            controls.update();
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Запуск приложения
+        init();
+    </script>
+</body>
+</html>
